@@ -3258,7 +3258,6 @@ class HTML5_TreeBuilder {
         /* 1. If there are no entries in the list of active formatting elements,
         then there is nothing to reconstruct; stop this algorithm. */
         $formatting_elements = count($this->a_formatting);
-
         if($formatting_elements === 0) {
             return false;
         }
@@ -3298,7 +3297,7 @@ class HTML5_TreeBuilder {
         while(true) {
             /* 7. Let entry be the element one later than entry in the list of
             active formatting elements. */
-            if(isset($step_seven) && $step_seven === true) {
+            if(isset($step_seven) && $step_seven === true or $entry === self::MARKER) {
                 $a++;
                 $entry = $this->a_formatting[$a];
             }
