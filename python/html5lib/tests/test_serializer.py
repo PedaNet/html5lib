@@ -1,11 +1,16 @@
 import os
 import unittest
-from support import html5lib_test_files
+from support import get_data_files
 
 try:
     import json
 except ImportError:
     import simplejson as json
+
+try:
+    unittest.TestCase.assertEqual
+except AttributeError:
+    unittest.TestCase.assertEqual = unittest.TestCase.assertEquals
 
 import html5lib
 from html5lib import html5parser, serializer, constants
@@ -83,7 +88,16 @@ def serialize_xhtml(input, options):
     options = dict([(str(k),v) for k,v in options.iteritems()])
     return serializer.XHTMLSerializer(**options).render(JsonWalker(input),options.get("encoding",None))
 
-def make_test(input, expected, xhtml, options):
+def runSerializerTest(input, expected, xhtml, options):
+    encoding = options.get("encoding", None)
+
+    if encoding:
+        encode = lambda x: x.encode(encoding)
+        expected = map(encode, expected)
+        if xhtml:
+            xhtml = map(encode, xhtml)
+        
+    
     result = serialize_html(input, options)
     if len(expected) == 1:
         assert expected[0] == result, "Expected:\n%s\nActual:\n%s\nOptions\nxhtml:False\n%s"%(expected[0], result, str(options))
@@ -114,13 +128,12 @@ class EncodingTestCase(unittest.TestCase):
         self.throwsWithLatin1([["Doctype", u"potato", u"potato", u"\u0101"]])
 
     def testCdataCharacters(self):
-        self.assertEquals("<style>&amacr;", serialize_html([["StartTag", "http://www.w3.org/1999/xhtml", "style", {}],
-                                                            ["Characters", u"\u0101"]],
-                                                           {"encoding": "iso-8859-1"}))
+        runSerializerTest([["StartTag", "http://www.w3.org/1999/xhtml", "style", {}], ["Characters", u"\u0101"]],
+                          [u"<style>&amacr;"], None, {"encoding": "iso-8859-1"})
 
     def testCharacters(self):
-        self.assertEquals("&amacr;", serialize_html([["Characters", u"\u0101"]],
-                                                    {"encoding": "iso-8859-1"}))
+        runSerializerTest([["Characters", u"\u0101"]],
+                          [u"&amacr;"], None, {"encoding": "iso-8859-1"})
 
     def testStartTagName(self):
         self.throwsWithLatin1([["StartTag", u"http://www.w3.org/1999/xhtml", u"\u0101", []]])
@@ -132,9 +145,9 @@ class EncodingTestCase(unittest.TestCase):
         self.throwsWithLatin1([["StartTag", u"http://www.w3.org/1999/xhtml", u"span", [{"namespace": None, "name": u"\u0101", "value": u"potato"}]]])
 
     def testAttributeValue(self):
-        self.assertEquals("<span potato=&amacr;>", serialize_html([["StartTag", u"http://www.w3.org/1999/xhtml", u"span",
-                                                                    [{"namespace": None, "name": u"potato", "value": u"\u0101"}]]],
-                                                                  {"encoding": "iso-8859-1"}))
+        runSerializerTest([["StartTag", u"http://www.w3.org/1999/xhtml", u"span",
+                            [{"namespace": None, "name": u"potato", "value": u"\u0101"}]]],
+                          [u"<span potato=&amacr;>"], None, {"encoding": "iso-8859-1"})
 
     def testEndTagName(self):
         self.throwsWithLatin1([["EndTag", u"http://www.w3.org/1999/xhtml", u"\u0101"]])
@@ -154,27 +167,28 @@ if "lxml" in optionals_loaded:
             doc = """<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&beta;</html>"""
             tree = etree.fromstring(doc, parser = self.parser).getroottree()
             result = serializer.serialize(tree, tree="lxml", omit_optional_tags=False)
-            self.assertEquals(u"""<!DOCTYPE html SYSTEM "about:legacy-compat"><html>\u03B2</html>""", result)
+            self.assertEqual(u"""<!DOCTYPE html SYSTEM "about:legacy-compat"><html>\u03B2</html>""", result)
 
         def testEntityXML(self):
             doc = """<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&gt;</html>"""
             tree = etree.fromstring(doc, parser = self.parser).getroottree()
             result = serializer.serialize(tree, tree="lxml", omit_optional_tags=False)
-            self.assertEquals(u"""<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&gt;</html>""", result)
+            self.assertEqual(u"""<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&gt;</html>""", result)
 
         def testEntityNoResolve(self):
             doc = """<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&beta;</html>"""
             tree = etree.fromstring(doc, parser = self.parser).getroottree()
             result = serializer.serialize(tree, tree="lxml", omit_optional_tags=False,
                                           resolve_entities=False)
-            self.assertEquals(u"""<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&beta;</html>""", result)
+            self.assertEqual(u"""<!DOCTYPE html SYSTEM "about:legacy-compat"><html>&beta;</html>""", result)
 
 def test_serializer():
-    for filename in html5lib_test_files('serializer', '*.test'):
-        tests = json.load(file(filename))
-        test_name = os.path.basename(filename).replace('.test','')
-        for index, test in enumerate(tests['tests']):
-            xhtml = test.get("xhtml", test["expected"])
-            if test_name == 'optionaltags': 
-                xhtml = None
-            yield make_test, test["input"], test["expected"], xhtml, test.get("options", {})
+    for filename in get_data_files('serializer', '*.test'):
+        with open(filename) as fp:
+            tests = json.load(fp)
+            test_name = os.path.basename(filename).replace('.test','')
+            for index, test in enumerate(tests['tests']):
+                xhtml = test.get("xhtml", test["expected"])
+                if test_name == 'optionaltags': 
+                    xhtml = None
+                yield runSerializerTest, test["input"], test["expected"], xhtml, test.get("options", {})

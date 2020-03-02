@@ -1,12 +1,16 @@
 import os
 import sys
-import StringIO
 import unittest
 import warnings
 
+try:
+    unittest.TestCase.assertEqual
+except AttributeError:
+    unittest.TestCase.assertEqual = unittest.TestCase.assertEquals
+
 warnings.simplefilter("error")
 
-from support import html5lib_test_files, TestData, convertExpected
+from support import get_data_files, TestData, convertExpected
 
 from html5lib import html5parser, treewalkers, treebuilders, constants
 from html5lib.filters.lint import Filter as LintFilter, LintError
@@ -264,15 +268,15 @@ class TokenTestCase(unittest.TestCase):
             document = treeCls.get("adapter", lambda x: x)(document)
             output = treeCls["walker"](document)
             for expectedToken, outputToken in zip(expected, output):
-                self.assertEquals(expectedToken, outputToken)
+                self.assertEqual(expectedToken, outputToken)
 
-def run_test(innerHTML, input, expected, errors, treeClass):
+def runTreewalkerTest(innerHTML, input, expected, errors, treeClass):
     try:
         p = html5parser.HTMLParser(tree = treeClass["builder"])
         if innerHTML:
-            document = p.parseFragment(StringIO.StringIO(input), innerHTML)
+            document = p.parseFragment(input, innerHTML)
         else:
-            document = p.parse(StringIO.StringIO(input))
+            document = p.parse(input)
     except constants.DataLossWarning:
         #Ignore testcases we know we don't pass
         return
@@ -294,7 +298,7 @@ def test_treewalker():
     sys.stdout.write('Testing tree walkers '+ " ".join(treeTypes.keys()) + "\n")
 
     for treeName, treeCls in treeTypes.iteritems():
-        files = html5lib_test_files('tree-construction')
+        files = get_data_files('tree-construction')
         for filename in files:
             testName = os.path.basename(filename).replace(".dat","")
 
@@ -306,6 +310,6 @@ def test_treewalker():
                                                                "document-fragment",
                                                                "document")]
                 errors = errors.split("\n")
-                yield run_test, innerHTML, input, expected, errors, treeCls
+                yield runTreewalkerTest, innerHTML, input, expected, errors, treeCls
 
 

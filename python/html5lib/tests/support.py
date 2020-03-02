@@ -62,7 +62,7 @@ try:
 except ImportError:
     pass
 
-def html5lib_test_files(subdirectory, files='*.dat'):
+def get_data_files(subdirectory, files='*.dat'):
     return glob.glob(os.path.join(test_dir,subdirectory,files))
 
 class DefaultDict(dict):
@@ -77,6 +77,9 @@ class TestData(object):
     def __init__(self, filename, newTestHeading="data"):
         self.f = codecs.open(filename, encoding="utf8")
         self.newTestHeading = newTestHeading
+
+    def __del__(self):
+        self.f.close()
     
     def __iter__(self):
         data = DefaultDict(None)
@@ -114,14 +117,14 @@ class TestData(object):
 def convert(stripChars):
     def convertData(data):
         """convert the output of str(document) to the format used in the testcases"""
-        data = data.split("\n")
+        data = data.split(u"\n")
         rv = []
         for line in data:
-            if line.startswith("|"):
+            if line.startswith(u"|"):
                 rv.append(line[stripChars:])
             else:
                 rv.append(line)
-        return "\n".join(rv)
+        return u"\n".join(rv)
     return convertData
 
 convertExpected = convert(2)
