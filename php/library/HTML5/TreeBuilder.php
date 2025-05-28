@@ -34,6 +34,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //      XDOM - DOM specific code (tagName is explicitly not marked).
 //          this is not (yet) in helper functions.
 
+#[AllowDynamicProperties]
 class HTML5_TreeBuilder {
     public $stack = array();
     public $content_model;
